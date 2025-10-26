@@ -1,0 +1,7 @@
+CTkMessagebox==2.7
+customtkinter==5.2.2
+darkdetect==0.8.0
+numpy==1.24.4
+opencv-python==4.12.0.88
+packaging==25.0
+pillow==10.4.0
