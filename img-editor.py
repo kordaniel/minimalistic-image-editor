@@ -6,12 +6,12 @@ Dependencies:
     pip install opencv-python pillow numpy
 """
 
-import tkinter as tk
+import customtkinter as ctk
+from CTkMessagebox import CTkMessagebox
 from tkinter import filedialog, messagebox, simpledialog, colorchooser
 import cv2
 import numpy as np
 from PIL import Image, ImageTk, ImageDraw, ImageFont
-import os
 from collections import deque
 
 
@@ -45,56 +45,76 @@ class ImageTextEditor:
         self.fill_color = (255, 255, 255)
         self.picking_color = False
 
+        self.text_color = (100, 120, 180)
+        self.picking_text_color = False
+
         # build UI
         self._build_ui()
         self._bind_events()
 
 
     def _build_ui(self):
-        top_frame = tk.Frame(self.root)
-        top_frame.pack(fill=tk.X, padx=4, pady=4)
+        top_frame = ctk.CTkFrame(self.root)
+        top_frame.pack(fill=ctk.X, padx=4, pady=4)
 
-        tk.Button(top_frame, text="Load Image", command=self.load_image).pack(side=tk.LEFT, padx=3)
-        tk.Button(top_frame, text="Clear Selection", command=self.clear_selection).pack(side=tk.LEFT, padx=3)
-        tk.Button(top_frame, text="Add Text", command=self.add_text).pack(side=tk.LEFT, padx=3)
-        tk.Button(top_frame, text="Save Edited Image", command=self.save_image).pack(side=tk.LEFT, padx=3)
+        buttons_frame = ctk.CTkFrame(top_frame)
+        buttons_frame.pack(fill=ctk.X)
 
-        tk.Label(top_frame, text="Tolerance:").pack(side=tk.LEFT, padx=(10,3))
-        self.tol_slider = tk.Scale(top_frame, from_=0, to=100, orient=tk.HORIZONTAL,
-                                   command=self._tol_from_slider, length=160)
+        ctk.CTkButton(buttons_frame, text="Load Image", command=self.load_image).grid(column=0, row=0, pady=1, padx=1)
+        ctk.CTkButton(buttons_frame, text="Save Image", command=self.save_image).grid(column=0, row=1, pady=1, padx=1)
+        ctk.CTkButton(buttons_frame, text="Add Text", command=self.add_text).grid(column=1, row=0, pady=1, padx=1)
+        ctk.CTkButton(buttons_frame, text="Clear Selection", command=self.clear_selection).grid(column=1, row=1, pady=1, padx=1)
+
+        ctk.CTkLabel(buttons_frame, text="Selection tolerance:").grid(column=2, row=0, pady=1, padx=1)
+        self.tol_slider = ctk.CTkSlider(buttons_frame, from_=0, to=100, orientation=ctk.HORIZONTAL, command=self._tol_from_slider, width=100)
         self.tol_slider.set(int(self.internal_tolerance/self.max_internal_tolerance*100))
-        self.tol_slider.pack(side=tk.LEFT, padx=3)
+        self.tol_slider.grid(column=3, row=0, pady=1, padx=1)
 
-        tk.Label(top_frame, text="Manual:").pack(side=tk.LEFT, padx=(8,2))
-        self.tol_entry = tk.Entry(top_frame, width=6)
+        self.tol_entry = ctk.CTkEntry(buttons_frame, width=50)
         self.tol_entry.insert(0, f"{self.internal_tolerance:.2f}")
         self.tol_entry.bind("<Return>", self._tol_from_entry)
-        self.tol_entry.pack(side=tk.LEFT, padx=2)
-
-        self.canvas = tk.Canvas(self.root, bg="grey", width=900, height=600)
-        self.canvas.pack(fill=tk.BOTH, expand=True)
-        self.tk_image = None
+        self.tol_entry.grid(column=4, row=0, pady=1, padx=1)
 
         # Deselect margin slider
-        tk.Label(top_frame, text="Deselect Margin:").pack(anchor="w")
-        self.margin_slider = tk.Scale(top_frame, from_=0, to=20, orient="horizontal",
-                                      command=self._update_deselect_margin)
+        ctk.CTkLabel(buttons_frame, text="Deselect Margin:").grid(column=2, row=1, pady=1, padx=1)
+        self.margin_slider = ctk.CTkSlider(buttons_frame, from_=0, to=20, orientation=ctk.HORIZONTAL, command=self._update_deselect_margin, width=100)
         self.margin_slider.set(self.deselect_margin)
-        self.margin_slider.pack(fill="x", pady=(0, 8))
+        self.margin_slider.grid(column=3, row=1, pady=1, padx=1)
 
-        # Fill color picker
-        self.pick_color_btn = tk.Button(top_frame, text="Pick Fill Color", command=self.enable_color_pick)
-        self.pick_color_btn.pack(fill="x", pady=(5, 0))
-
-        # Fill color preview
-        self.color_preview = tk.Label(top_frame, bg=self._rgb_to_hex(self.fill_color), width=10, relief="sunken")
-        self.color_preview.pack(pady=(0, 10))
+        self.margin_entry = ctk.CTkEntry(buttons_frame, width=50)
+        self.margin_entry.insert(0, f"{self.deselect_margin:.3f}")
+        self.margin_entry.bind("<Return>", self._deselect_margin_from_entry)
+        self.margin_entry.grid(column=4, row=1, pady=1, padx=1)
 
         # Fill button
-        tk.Button(top_frame, text="Fill Selection", command=self.fill_selection).pack(fill="x", pady=(5, 10))
+        ctk.CTkButton(buttons_frame, text="Fill Selection", command=self.fill_selection).grid(column=5, row=1, pady=1, padx=1)
+
+        # Fill color picker
+        self.pick_color_btn = ctk.CTkButton(buttons_frame, text="Pick fill Color", command=self.enable_color_pick)
+        self.pick_color_btn.grid(column=5, row=0, pady=1, padx=1)
+
+        # Fill color preview
+        self.color_preview_btn = ctk.CTkButton(buttons_frame, text="", fg_color=self._rgb_to_hex(self.fill_color), command=self.enable_color_pick)
+        self.color_preview_btn.grid(column=6, row=0, pady=1, padx=1)
+
+        self.canvas = ctk.CTkCanvas(self.root, bg="grey", width=900, height=600)
+        self.canvas.pack(fill=ctk.BOTH, expand=True)
+        self.ctk_image = None
 
     def _update_deselect_margin(self, val):
         self.deselect_margin = float(val)
+        self.margin_entry.delete(0, ctk.END)
+        self.margin_entry.insert(0, f"{self.deselect_margin:.3f}")
+
+    def _deselect_margin_from_entry(self, event):
+        try:
+            v = float(self.margin_entry.get())
+        except Exception:
+            v = self.deselect_margin
+        self.deselect_margin = max(0.0, v)
+        self.margin_slider.set(self.deselect_margin)
+        self.margin_entry.delete(0, ctk.END)
+        self.margin_entry.insert(0, f"{self.deselect_margin:.3f}")
 
     def _rgb_to_hex(self, rgb):
         return "#%02x%02x%02x" % tuple(int(c) for c in rgb)
@@ -102,6 +122,10 @@ class ImageTextEditor:
     def enable_color_pick(self):
         """Enable color picking mode."""
         self.picking_color = True
+        self.canvas.config(cursor="cross")
+
+    def enable_text_color_pick(self):
+        self.picking_text_color = True
         self.canvas.config(cursor="cross")
 
     def _on_left_click(self, event):
@@ -113,13 +137,32 @@ class ImageTextEditor:
             # pick color
             bgr = self.image[img_y, img_x].tolist()
             self.fill_color = tuple(int(c) for c in bgr[::-1])  # convert BGR → RGB
-            self.color_preview.config(bg=self._rgb_to_hex(self.fill_color))
+            self.color_preview_btn.configure(fg_color=self._rgb_to_hex(self.fill_color))
             self.picking_color = False
+            self.canvas.config(cursor="")
+            return
+
+        if self.picking_text_color:
+            # pick text color
+            bgr = self.image[img_y, img_x].tolist()
+            self.text_color = tuple(int(c) for c in bgr[::-1])  # convert BGR → RGB
+            self.picking_text_color = False
             self.canvas.config(cursor="")
             return
 
         self.select_single_polygon(img_x, img_y, mode="outer")
 
+    def _on_right_click(self, event):
+        """
+        Right-click: deselect a sub-region inside the selection.
+        The deselection region is slightly expanded to include neighboring pixels.
+        """
+        if self.image is None or self.current_selection is None:
+            return
+        img_x, img_y = self._canvas_to_image_coords(event)
+        if self.current_selection[img_y, img_x] == 0:
+            return
+        self.select_single_polygon(img_x, img_y, mode="inner")
 
     def _bind_events(self):
         # focus so wheel events delivered
@@ -130,10 +173,7 @@ class ImageTextEditor:
         self.canvas.bind("<Button-4>", self._on_mousewheel)      # Linux up
         self.canvas.bind("<Button-5>", self._on_mousewheel)      # Linux down
 
-        # panning: middle button and Shift+Left-drag
-        self.canvas.bind("<ButtonPress-2>", self._start_pan)
-        self.canvas.bind("<B2-Motion>", self._do_pan)
-        # Shift + left drag alternative for pan
+        # Shift + left drag for pan
         self.canvas.bind("<Shift-ButtonPress-1>", self._start_pan_shift)
         self.canvas.bind("<Shift-B1-Motion>", self._do_pan_shift)
         self.canvas.bind("<Shift-ButtonRelease-1>", self._end_pan_shift)
@@ -149,12 +189,13 @@ class ImageTextEditor:
     # Load/Save
     # --------------------------
     def load_image(self):
-        path = filedialog.askopenfilename(title="Open image",
+        path = ctk.filedialog.askopenfilename(title="Open image",
                                           filetypes=[("Image Files", "*.png *.jpg *.jpeg *.bmp *.tiff *.tif"), ("All Files", "*.*")])
         if not path:
             return
         img = cv2.imread(path)
         if img is None:
+            #CtkMessageBox(title="Error", message=f"Could not load image: {path}")
             messagebox.showerror("Error", f"Could not load image: {path}")
             return
         self.image = cv2.bilateralFilter(img, d=5, sigmaColor=30, sigmaSpace=30)
@@ -165,17 +206,16 @@ class ImageTextEditor:
         self.zoom_factor = 1.0
         self.canvas.delete("all")
         self._redraw_canvas()
-        messagebox.showinfo("Loaded", f"Loaded: {os.path.basename(path)}")
 
     def save_image(self):
         if self.display_image is None:
-            messagebox.showinfo("Info", "No image to save.")
+            CTkMessagebox(title="Info", message="No image to save")
             return
         path = filedialog.asksaveasfilename(defaultextension=".png", filetypes=[("PNG", "*.png"), ("JPEG", "*.jpg")])
         if not path:
             return
         cv2.imwrite(path, self.display_image)
-        messagebox.showinfo("Saved", f"Saved edited image to:\n{path}")
+        CTkMessagebox(title="Image saved", message=f"Saved edited image to:\n{path}")
 
     # --------------------------
     # Tolerance UI helpers
@@ -186,7 +226,7 @@ class ImageTextEditor:
         except Exception:
             v = 0.0
         self.internal_tolerance = round(v/100.0 * self.max_internal_tolerance, 3)
-        self.tol_entry.delete(0, tk.END)
+        self.tol_entry.delete(0, ctk.END)
         self.tol_entry.insert(0, f"{self.internal_tolerance:.3f}")
 
     def _tol_from_entry(self, event):
@@ -198,7 +238,7 @@ class ImageTextEditor:
         self.internal_tolerance = v
         slider_val = int(round(v/self.max_internal_tolerance * 100))
         self.tol_slider.set(slider_val)
-        self.tol_entry.delete(0, tk.END)
+        self.tol_entry.delete(0, ctk.END)
         self.tol_entry.insert(0, f"{self.internal_tolerance:.3f}")
 
     # --------------------------
@@ -265,13 +305,6 @@ class ImageTextEditor:
             if total_h > 0:
                 self.canvas.yview_moveto(max(0, (self.canvas.canvasy(0) + dy) / total_h))
 
-    def _start_pan(self, event):
-        # middle-button pan
-        self.canvas.scan_mark(event.x, event.y)
-
-    def _do_pan(self, event):
-        self.canvas.scan_dragto(event.x, event.y, gain=1)
-
     def _start_pan_shift(self, event):
         # Shift + left button pan: store last pos
         self._pan_last = (event.x, event.y)
@@ -315,21 +348,8 @@ class ImageTextEditor:
         self.tk_image = ImageTk.PhotoImage(pil)
 
         self.canvas.delete("all")
-        self.canvas.create_image(0, 0, anchor=tk.NW, image=self.tk_image)
+        self.canvas.create_image(0, 0, anchor=ctk.NW, image=self.tk_image)
         self.canvas.config(scrollregion=(0, 0, new_w, new_h))
-
-    def _on_right_click(self, event):
-        """
-        Right-click: deselect a sub-region inside the selection.
-        The deselection region is slightly expanded to include neighboring pixels.
-        """
-        if self.image is None or self.current_selection is None:
-            return
-        img_x, img_y = self._canvas_to_image_coords(event)
-        if self.current_selection[img_y, img_x] == 0:
-            return
-        self.select_single_polygon(img_x, img_y, mode="inner")
-
 
     def select_single_polygon(self, x, y, mode="outer"):
         """
@@ -486,7 +506,7 @@ class ImageTextEditor:
         return out
 
     # --------------------------
-    # Fill selection with dominant color
+    # Fill selection with selected color
     # --------------------------
     def fill_selection(self):
         if self.current_selection is None or self.display_image is None:
@@ -503,9 +523,6 @@ class ImageTextEditor:
 
         self.display_image = filled_image
 
-        #pixels = self.display_image[mask_bool]
-        #mean_col = tuple(np.round(pixels.mean(axis=0)).astype(int).tolist())
-        #self.display_image[mask_bool] = mean_col
         self._redraw_canvas()
 
     # --------------------------
@@ -518,12 +535,15 @@ class ImageTextEditor:
         text = simpledialog.askstring("Add Text", "Enter replacement text:")
         if not text:
             return
+
         col = colorchooser.askcolor(title="Choose text color")
         if col is None or col[0] is None:
             text_color = (0,0,0)
         else:
             rgb = tuple(int(round(c)) for c in col[0])
             text_color = rgb
+
+        #text_color = self.text_color
 
         ys, xs = np.where(self.current_selection > 0)
         if len(xs) == 0:
@@ -551,7 +571,11 @@ class ImageTextEditor:
         font = get_font(font_size)
         while font_size > 6:
             font = get_font(font_size)
-            w, h = draw.textsize(text, font=font)
+
+            #w, h = draw.textsize(text, font=font)
+            bbox = draw.textbbox((0, 0), text, font=font)
+            w = bbox[2] - bbox[0]
+            h = bbox[3] - bbox[1]
             if w <= box_w * 0.95 and h <= box_h * 0.95:
                 wrapped_lines = [text]
                 break
@@ -561,20 +585,28 @@ class ImageTextEditor:
                 cur = words[0]
                 for wword in words[1:]:
                     test = cur + " " + wword
-                    tw, th = draw.textsize(test, font=font)
+                    #tw, th = draw.textsize(test, font=font)
+                    tbbox = draw.textbbox((0,0), text, font=font)
+                    tw = tbbox[2] - tbbox[0]
+                    th = tbbox[3] - tbbox[1]
                     if tw <= box_w * 0.95:
                         cur = test
                     else:
                         lines.append(cur)
                         cur = wword
                 lines.append(cur)
-                total_h = sum(draw.textsize(line, font=font)[1] for line in lines)
+                #total_h = sum(draw.textsize(line, font=font)[1] for line in lines)
+                total_h = sum(draw.textbbox((0, 0), line, font=font)[3] - draw.textbbox((0, 0), line, font=font)[1] for line in lines)
                 if total_h <= box_h * 0.95:
                     wrapped_lines = lines
                     break
             font_size -= 2
 
-        line_sizes = [draw.textsize(line, font=font) for line in wrapped_lines]
+        line_sizes = []
+        for line in wrapped_lines:
+            linebbox = draw.textbbox((0, 0), line, font=font)
+            line_sizes.append((linebbox[2]-linebbox[0], linebbox[3]-linebbox[1]))
+        #line_sizes = [draw.textsize(line, font=font) for line in wrapped_lines]
         total_h = sum(h for (_, h) in line_sizes)
         start_y = y0 + (box_h - total_h) // 2
 
@@ -600,6 +632,8 @@ class ImageTextEditor:
 
 
 if __name__ == "__main__":
-    root = tk.Tk()
+    ctk.set_appearance_mode("system")
+    #ctk.set_default_color_theme("dark-blue")
+    root = ctk.CTk()
     app = ImageTextEditor(root)
     root.mainloop()
